@@ -21,40 +21,47 @@ export default function BookmarkList({
 }) {
   const [bookmarks, setBookmarks] = useState(initialBookmarks);
 
-  useEffect(() => {
-    const supabase = createClient(); // ✅ create inside effect
+useEffect(() => {
+  const supabase = createClient();
 
-    const channel = supabase
-      .channel("bookmarks-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bookmarks",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setBookmarks((prev) => [
-              payload.new as Bookmark,
-              ...prev,
-            ]);
-          }
+  console.log("User ID for realtime:", userId);
 
-          if (payload.eventType === "DELETE") {
-            setBookmarks((prev) =>
-              prev.filter((b) => b.id !== payload.old.id)
-            );
-          }
+  const channel = supabase
+    .channel("bookmarks-realtime")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "bookmarks",
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload) => {
+        console.log("Realtime payload:", payload);
+
+        if (payload.eventType === "INSERT") {
+          setBookmarks((prev) => [
+            payload.new as Bookmark,
+            ...prev,
+          ]);
         }
-      )
-      .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]); // ✅ only depend on userId
+        if (payload.eventType === "DELETE") {
+          setBookmarks((prev) =>
+            prev.filter((b) => b.id !== payload.old.id)
+          );
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("Realtime status:", status);
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [userId]);
+
 
   return (
     <div className="space-y-3">
